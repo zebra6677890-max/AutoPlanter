@@ -49,15 +49,19 @@ internal sealed class ModEntry : Mod
     }
     void OnButtonPressed(object? s, ButtonPressedEventArgs e)
     {
-        if (!Context.IsWorldReady || !Context.IsMainPlayer || !e.Button.IsActionButton()) return;
-        // Use SMAPI's actual cursor target. GetGrabTile() uses the farmer's facing
-        // direction and can miss buildings when tapping them on Android.
+        if (!Context.IsWorldReady || !Context.IsMainPlayer || Game1.activeClickableMenu is not null) return;
+
+        // Android touch controls can report a different button than desktop action-click.
+        // Check every input press against all available tile targets, but only open
+        // the menu when the tap/target is actually on this building.
         Vector2 grabTile = e.Cursor.GrabTile;
         Vector2 cursorTile = e.Cursor.Tile;
         Vector2 facingTile = Game1.player.GetGrabTile();
-        selected = Game1.getFarm().buildings.FirstOrDefault(b => b.buildingType.Value == Id &&
+        Farm farm = Game1.getFarm();
+        selected = farm.buildings.FirstOrDefault(b => b.buildingType.Value == Id &&
             (IsInside(b, grabTile) || IsInside(b, cursorTile) || IsInside(b, facingTile)));
         if (selected is null) return;
+
         Helper.Input.Suppress(e.Button);
         Game1.currentLocation.createQuestionDialogue("Конюшня автопосадки", new[] {
             new Response("load","Загрузить семена"), new Response("cancel","Отмена"), new Response("start","Начать работу")
