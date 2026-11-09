@@ -1,0 +1,36 @@
+name: Build AutoPlanter
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Add Stardew Valley reference assemblies
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-reference-assemblies@v1
+
+      - name: Build
+        run: dotnet build AutoPlanter/AutoPlanter.csproj --configuration Release
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoPlanter-build
+          path: |
+            AutoPlanter/bin/Release/**
+          if-no-files-found: error
+          retention-days: 14
