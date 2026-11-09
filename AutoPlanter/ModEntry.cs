@@ -33,7 +33,7 @@ internal sealed class ModEntry : Mod
     }
     void OnAssetRequested(object? s, AssetRequestedEventArgs e)
     {
-        string buildingTexture = Helper.ModContent.GetActualAssetKey("assets/horse_plow_building.png");
+        string buildingTexture = Helper.ModContent.GetInternalAssetName("assets/horse_plow_building.png").Name;
         if (e.NameWithoutLocale.IsEquivalentTo(buildingTexture))
         {
             e.LoadFrom(() => Helper.ModContent.Load<Texture2D>("assets/horse_plow_building.png"), AssetLoadPriority.Exclusive);
