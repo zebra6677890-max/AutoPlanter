@@ -93,12 +93,12 @@ internal sealed class ModEntry : Mod
 
                 if (!farm.terrainFeatures.TryGetValue(tile, out TerrainFeature? feature))
                 {
-                    var newDirt = new HoeDirt();
+                    var newDirt = new HoeDirt(0);
                     farm.terrainFeatures.Add(tile, newDirt);
                     feature = newDirt;
                 }
 
-                if (feature is not HoeDirt dirt || dirt.crop.Value != null)
+                if (feature is not HoeDirt dirt || dirt.crop != null)
                     continue;
 
                 if (TryPlantOneSeed(dirt, tile, farm))
@@ -125,7 +125,7 @@ internal sealed class ModEntry : Mod
             if (item is not StardewValley.Object seed || seed.Category != StardewValley.Object.SeedsCategory || seed.Stack <= 0)
                 continue;
 
-            dirt.plant(seed.ItemId, (int)tile.X, (int)tile.Y, Game1.player, false, farm);
+            if (!dirt.plant(seed.ParentSheetIndex, (int)tile.X, (int)tile.Y, Game1.player, false))\n                continue;
             seed.Stack--;
             if (seed.Stack <= 0)
                 Game1.player.Items[i] = null;
