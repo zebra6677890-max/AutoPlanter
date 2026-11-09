@@ -1,5 +1,6 @@
 using StardewModdingAPI.Events;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
 using StardewValley;
 using StardewValley.Buildings;
@@ -15,11 +16,17 @@ internal sealed class ModEntry : Mod
     private const int WorkRadius = 20;
     private const int PatchSize = 3;
     private long lastWorkTick;
+    private Texture2D? horseTexture;
+    private Vector2? horsePosition;
+    private Vector2? horseTarget;
+    private int horseFrame;
+    private int animationTicks;
 
     public override void Entry(IModHelper helper)
     {
         helper.Events.Content.AssetRequested += OnAssetRequested;
         helper.Events.GameLoop.UpdateTicked += OnUpdateTicked;
+        helper.Events.Display.RenderedWorld += OnRenderedWorld;
         Monitor.Log("AutoPlanter loaded. Horse-plow building data and planting logic registered.", LogLevel.Info);
     }
 
