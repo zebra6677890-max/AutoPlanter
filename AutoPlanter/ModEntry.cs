@@ -33,9 +33,16 @@ internal sealed class ModEntry : Mod
     }
     void OnAssetRequested(object? s, AssetRequestedEventArgs e)
     {
+        string buildingTexture = Helper.ModContent.GetActualAssetKey("assets/horse_plow_building.png");
+        if (e.NameWithoutLocale.IsEquivalentTo(buildingTexture))
+        {
+            e.LoadFrom(() => Helper.ModContent.Load<Texture2D>("assets/horse_plow_building.png"), AssetLoadPriority.Exclusive);
+            return;
+        }
         if (!e.NameWithoutLocale.IsEquivalentTo("Data/Buildings")) return;
         e.Edit(a => a.AsDictionary<string, BuildingData>().Data[Id] = new BuildingData {
-            Name = "Horse Plow", Description = "A horse-drawn automatic planter.", Texture = "Buildings/Shipping Bin",
+            Name = "Horse Plow", Description = "A horse-drawn automatic planter.", Texture = buildingTexture,
+            SourceRect = new Rectangle(0, 0, 192, 192),
             Builder = "Robin", BuildCost = 50000, BuildDays = 1, Size = new Point(3,3),
             CollisionMap = "XXX\nXOX\nXXX", Metadata = new Dictionary<string,string>{{"AutoPlanter","HorsePlow"}}
         });
