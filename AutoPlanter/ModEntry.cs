@@ -40,7 +40,9 @@ internal sealed class ModEntry : Mod
                 BuildCost = 50000,
                 BuildDays = 1,
                 Size = new Point(3, 3),
-                CollisionMap = "XXX\nXOX\nXXX",
+                CollisionMap = "XXX
+XOX
+XXX",
                 Metadata = new Dictionary<string, string>
                 {
                     ["AutoPlanter"] = "HorsePlow"
@@ -126,7 +128,8 @@ internal sealed class ModEntry : Mod
             if (item is not StardewValley.Object seed || seed.Category != StardewValley.Object.SeedsCategory || seed.Stack <= 0)
                 continue;
 
-            if (!dirt.plant(seed.ParentSheetIndex, (int)tile.X, (int)tile.Y, Game1.player, false))\n                continue;
+            if (!dirt.plant(seed.ParentSheetIndex, (int)tile.X, (int)tile.Y, Game1.player, false))
+                continue;
             seed.Stack--;
             if (seed.Stack <= 0)
                 Game1.player.Items[i] = null;
