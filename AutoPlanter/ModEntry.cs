@@ -93,7 +93,24 @@ internal sealed class ModEntry : Mod
             seedChest = new Chest(true);
             foreach (var d in ReadSeeds(selected))
                 try { seedChest.Items.Add(ItemRegistry.Create(d.Id,d.Count)); } catch { }
-            Game1.activeClickableMenu = new ItemGrabMenu(seedChest.Items, false);
+            Game1.activeClickableMenu = new ItemGrabMenu(
+                inventory: seedChest.Items,
+                reverseGrab: false,
+                showReceivingMenu: true,
+                highlightFunction: null,
+                behaviorOnItemSelectFunction: null,
+                message: null,
+                behaviorOnItemGrab: null,
+                snapToBottom: false,
+                canBeExitedWithKey: true,
+                playRightClickSound: true,
+                allowRightClick: true,
+                showOrganizeButton: false,
+                source: ItemGrabMenu.source_chest,
+                sourceItem: seedChest,
+                whichSpecialButton: -1,
+                context: seedChest
+            );
         }
         else if (answer == "start")
         {
