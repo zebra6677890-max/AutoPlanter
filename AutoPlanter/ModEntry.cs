@@ -58,7 +58,11 @@ internal sealed class ModEntry : Mod
 
     private void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
     {
-        if (!Context.IsWorldReady || !Context.IsMainPlayer || e.Ticks - lastWorkTick < 60)
+        if (!Context.IsWorldReady || !Context.IsMainPlayer)
+            return;
+
+        UpdateHorseMovement();
+        if (e.Ticks - lastWorkTick < 60)
             return;
 
         lastWorkTick = e.Ticks;
@@ -85,6 +89,10 @@ internal sealed class ModEntry : Mod
             Point offset = patches[(cursor + checkedCount) % patches.Count];
             int centerX = building.tileX.Value + building.tilesWide.Value / 2 + offset.X;
             int centerY = building.tileY.Value + building.tilesHigh.Value / 2 + offset.Y;
+
+            horseTarget = new Vector2((centerX + 0.5f) * Game1.tileSize, (centerY + 0.5f) * Game1.tileSize);
+            if (horsePosition is null)
+                horsePosition = new Vector2((building.tileX.Value + 1.5f) * Game1.tileSize, (building.tileY.Value + 2.5f) * Game1.tileSize);
 
             if (!HasSeedInInventory())
                 return;
