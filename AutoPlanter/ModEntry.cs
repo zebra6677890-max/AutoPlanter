@@ -17,7 +17,8 @@ internal sealed class ModEntry : Mod
     const int Radius = 20;
     Texture2D? horseTexture;
     Vector2? horsePosition, horseTarget;
-    int frame, anim, tick;
+    int frame, anim;
+    uint tick;
     Building? selected;
     Chest? seedChest;
     sealed record SeedData(string Id, int Count);
@@ -50,7 +51,7 @@ internal sealed class ModEntry : Mod
         Helper.Input.Suppress(e.Button);
         Game1.currentLocation.createQuestionDialogue("Конюшня автопосадки", new[] {
             new Response("load","Загрузить семена"), new Response("cancel","Отмена"), new Response("start","Начать работу")
-        }, "AutoPlanter_Menu", OnAnswer);
+        }, OnAnswer);
     }
     void OnAnswer(Farmer who, string answer)
     {
@@ -60,7 +61,7 @@ internal sealed class ModEntry : Mod
             seedChest = new Chest(true);
             foreach (var d in ReadSeeds(selected))
                 try { seedChest.Items.Add(ItemRegistry.Create(d.Id,d.Count)); } catch { }
-            Game1.activeClickableMenu = new ItemGrabMenu(seedChest, false);
+            Game1.activeClickableMenu = new ItemGrabMenu(seedChest.Items, false);
         }
         else if (answer == "start")
         {
