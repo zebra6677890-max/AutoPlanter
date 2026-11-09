@@ -40,9 +40,7 @@ internal sealed class ModEntry : Mod
                 BuildCost = 50000,
                 BuildDays = 1,
                 Size = new Point(3, 3),
-                CollisionMap = "XXX
-XOX
-XXX",
+                CollisionMap = "XXX\nXOX\nXXX",
                 Metadata = new Dictionary<string, string>
                 {
                     ["AutoPlanter"] = "HorsePlow"
