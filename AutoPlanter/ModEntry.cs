@@ -13,7 +13,7 @@ using System.Text.Json;
 namespace AutoPlanter;
 internal sealed class ModEntry : Mod
 {
-    const string Id = "AutoPlanter.HorsePlow", SeedsKey = "AutoPlanter/Seeds", ActiveKey = "AutoPlanter/Active", CursorKey = "AutoPlanter/Cursor";
+    const string Id = "AutoPlanter.HorsePlow", SeedsKey = "AutoPlanter/Seeds", ActiveKey = "AutoPlanter/Active", CursorKey = "AutoPlanter/Cursor", MovingKey = "AutoPlanter/Moving";
     const int Radius = 20;
     Texture2D? horseTexture;
     Vector2? horsePosition, horseTarget;
@@ -117,8 +117,10 @@ internal sealed class ModEntry : Mod
             if (ReadSeeds(selected).Count == 0) { Game1.drawObjectDialogue("Сначала загрузи семена."); return; }
             selected.modData[ActiveKey] = "true";
             // Spawn the horse outside the building, not underneath its sprite.
-            horsePosition = new Vector2((selected.tileX.Value + 1.5f) * Game1.tileSize, (selected.tileY.Value + 3.5f) * Game1.tileSize);
+            horsePosition = new Vector2((selected.tileX.Value + 1.5f) * Game1.tileSize, (selected.tileY.Value + selected.tilesHigh.Value + 0.5f) * Game1.tileSize);
             horseTarget = horsePosition;
+            selected.modData[MovingKey] = "false";
+            selected.modData[CursorKey] = "0";
             frame = 0;
             anim = 0;
             Game1.drawObjectDialogue("Лошадь с плугом начинает работу.");
@@ -176,28 +178,74 @@ internal sealed class ModEntry : Mod
     }
     void Work(Farm farm, Building b)
     {
-        var stored=ReadSeeds(b); var seeds=new List<Item>();
-        foreach(var d in stored) try { seeds.Add(ItemRegistry.Create(d.Id,d.Count)); } catch {}
-        if (seeds.Count==0) { b.modData[ActiveKey]="false"; return; }
-        int cursor=0; if(b.modData.TryGetValue(CursorKey,out string? c)) int.TryParse(c,out cursor);
-        var centers=new List<Point>();
-        for(int y=-Radius;y<=Radius;y+=3) for(int x=-Radius;x<=Radius;x+=3) if(x*x+y*y<=Radius*Radius) centers.Add(new(x,y));
-        for(int n=0;n<centers.Count;n++)
+        var seeds = new List<Item>();
+        foreach (var d in ReadSeeds(b))
+            try { seeds.Add(ItemRegistry.Create(d.Id, d.Count)); } catch { }
+        if (seeds.Count == 0)
         {
-            Point p=centers[(cursor+n)%centers.Count]; int cx=b.tileX.Value+b.tilesWide.Value/2+p.X, cy=b.tileY.Value+b.tilesHigh.Value/2+p.Y;
-            horseTarget=new Vector2((cx+.5f)*Game1.tileSize,(cy+.5f)*Game1.tileSize);
-            horsePosition ??= new Vector2((b.tileX.Value+1.5f)*Game1.tileSize,(b.tileY.Value+2.5f)*Game1.tileSize);
-            int planted=0;
-            for(int dx=-1;dx<=1;dx++) for(int dy=-1;dy<=1;dy++)
-            {
-                Vector2 tile=new(cx+dx,cy+dy), origin=new(b.tileX.Value+b.tilesWide.Value/2f,b.tileY.Value+b.tilesHigh.Value/2f);
-                if(Vector2.DistanceSquared(tile,origin)>Radius*Radius) continue;
-                if(!farm.terrainFeatures.TryGetValue(tile,out TerrainFeature? f)) { var dirt=new HoeDirt(0); farm.terrainFeatures.Add(tile,dirt); f=dirt; }
-                if(f is HoeDirt soil && soil.crop is null && Plant(soil,tile,seeds)) planted++;
-            }
-            b.modData[CursorKey]=((cursor+n+1)%centers.Count).ToString();
-            if(planted>0) { b.modData[SeedsKey]=JsonSerializer.Serialize(seeds.Where(i=>i.Stack>0).Select(i=>new SeedData(i.QualifiedItemId,i.Stack))); return; }
+            b.modData[ActiveKey] = "false";
+            horsePosition = null; horseTarget = null;
+            return;
         }
+
+        var centers = new List<Point>();
+        for (int y = -Radius; y <= Radius; y += 3)
+            for (int x = -Radius; x <= Radius; x += 3)
+                if (x * x + y * y <= Radius * Radius) centers.Add(new Point(x, y));
+
+        int cursor = 0;
+        if (b.modData.TryGetValue(CursorKey, out string? raw)) int.TryParse(raw, out cursor);
+        cursor = Math.Clamp(cursor, 0, centers.Count - 1);
+        bool moving = b.modData.TryGetValue(MovingKey, out string? state) && state == "true";
+
+        if (!moving)
+        {
+            if (cursor == 0 && horsePosition is not null)
+            {
+                float best = float.MaxValue;
+                for (int i = 0; i < centers.Count; i++)
+                {
+                    Vector2 candidate = new(
+                        (b.tileX.Value + b.tilesWide.Value / 2f + centers[i].X + 0.5f) * Game1.tileSize,
+                        (b.tileY.Value + b.tilesHigh.Value / 2f + centers[i].Y + 0.5f) * Game1.tileSize);
+                    float distance = Vector2.DistanceSquared(horsePosition.Value, candidate);
+                    if (distance < best) { best = distance; cursor = i; }
+                }
+            }
+            Point next = centers[cursor];
+            int tx = b.tileX.Value + b.tilesWide.Value / 2 + next.X;
+            int ty = b.tileY.Value + b.tilesHigh.Value / 2 + next.Y;
+            horseTarget = new Vector2((tx + 0.5f) * Game1.tileSize, (ty + 0.5f) * Game1.tileSize);
+            b.modData[CursorKey] = cursor.ToString();
+            b.modData[MovingKey] = "true";
+            return;
+        }
+
+        if (horsePosition is null || horseTarget is null ||
+            Vector2.DistanceSquared(horsePosition.Value, horseTarget.Value) > 32f * 32f) return;
+
+        Point center = centers[cursor];
+        int cx = b.tileX.Value + b.tilesWide.Value / 2 + center.X;
+        int cy = b.tileY.Value + b.tilesHigh.Value / 2 + center.Y;
+        for (int dx = -1; dx <= 1; dx++)
+        for (int dy = -1; dy <= 1; dy++)
+        {
+            Vector2 tile = new(cx + dx, cy + dy);
+            Vector2 origin = new(b.tileX.Value + b.tilesWide.Value / 2f, b.tileY.Value + b.tilesHigh.Value / 2f);
+            if (Vector2.DistanceSquared(tile, origin) > Radius * Radius) continue;
+            if (!farm.terrainFeatures.TryGetValue(tile, out TerrainFeature? feature))
+            {
+                var dirt = new HoeDirt(0);
+                farm.terrainFeatures.Add(tile, dirt);
+                feature = dirt;
+            }
+            if (feature is HoeDirt soil && soil.crop is null) Plant(soil, tile, seeds);
+        }
+
+        b.modData[SeedsKey] = JsonSerializer.Serialize(seeds.Where(i => i.Stack > 0)
+            .Select(i => new SeedData(i.QualifiedItemId, i.Stack)).ToList());
+        b.modData[CursorKey] = ((cursor + 1) % centers.Count).ToString();
+        b.modData[MovingKey] = "false";
     }
     static bool Plant(HoeDirt dirt, Vector2 tile, List<Item> seeds)
     {
