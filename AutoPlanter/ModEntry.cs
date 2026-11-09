@@ -117,6 +117,11 @@ internal sealed class ModEntry : Mod
         {
             if (ReadSeeds(selected).Count == 0) { Game1.drawObjectDialogue("Сначала загрузи семена."); return; }
             selected.modData[ActiveKey] = "true";
+            // Spawn the horse outside the building, not underneath its sprite.
+            horsePosition = new Vector2((selected.tileX.Value + 1.5f) * Game1.tileSize, (selected.tileY.Value + 3.5f) * Game1.tileSize);
+            horseTarget = horsePosition;
+            frame = 0;
+            anim = 0;
             Game1.drawObjectDialogue("Лошадь с плугом начинает работу.");
         }
     }
@@ -179,24 +184,33 @@ internal sealed class ModEntry : Mod
     }
     static bool Plant(HoeDirt dirt, Vector2 tile, List<Item> seeds)
     {
-        var methods=typeof(HoeDirt).GetMethods(System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.Public|System.Reflection.BindingFlags.NonPublic).Where(m=>m.Name.Equals("plant",StringComparison.OrdinalIgnoreCase));
-        foreach(Item item in seeds)
+        // Stardew 1.6 planting API: item ID, farmer, fertilizer flag.
+        foreach (Item item in seeds)
         {
-            if(item is not StardewValley.Object seed || seed.Category!=StardewValley.Object.SeedsCategory || seed.Stack<=0) continue;
-            foreach(var m in methods)
+            if (item is not StardewValley.Object seed || seed.Category != StardewValley.Object.SeedsCategory || seed.Stack <= 0)
+                continue;
+
+            try
             {
-                var ps=m.GetParameters(); var args=new object?[ps.Length]; int ix=0; bool ok=true;
-                for(int j=0;j<ps.Length;j++) { Type t=ps[j].ParameterType;
-                    if(t==typeof(int)) args[j]=ix++ switch {0=>seed.ParentSheetIndex,1=>(int)tile.X,2=>(int)tile.Y,_=>0};
-                    else if(t==typeof(string)) args[j]=seed.QualifiedItemId; else if(t==typeof(Vector2)) args[j]=tile;
-                    else if(typeof(Farmer).IsAssignableFrom(t)) args[j]=Game1.player; else if(t==typeof(bool)) args[j]=false;
-                    else if(ps[j].HasDefaultValue) args[j]=ps[j].DefaultValue; else {ok=false;break;}
+                if (dirt.plant(seed.QualifiedItemId, Game1.player, false))
+                {
+                    seed.Stack--;
+                    return true;
                 }
-                if(!ok) continue;
-                try { object? result=m.Invoke(dirt,args); if(m.ReturnType==typeof(void)||(result is bool yes && yes)){seed.Stack--;return true;} } catch {}
+            }
+            catch (Exception ex)
+            {
+                // Keep the mod alive if the game rejects a tile or seed.
+                ModEntry.LogPlantError(ex);
             }
         }
         return false;
+    }
+
+    private static void LogPlantError(Exception ex)
+    {
+        // Detailed error is available in the SMAPI log.
+        System.Diagnostics.Debug.WriteLine(ex);
     }
     void OnRenderedWorld(object? s, RenderedWorldEventArgs e)
     {
