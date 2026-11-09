@@ -43,6 +43,7 @@ internal sealed class ModEntry : Mod
         e.Edit(a => a.AsDictionary<string, BuildingData>().Data[Id] = new BuildingData {
             Name = "Horse Plow", Description = "A horse-drawn automatic planter.", Texture = buildingTexture,
             SourceRect = new Rectangle(0, 0, 48, 64),
+            DrawOffset = new Vector2(0f, 64f),
             Builder = "Robin", BuildCost = 50000, BuildDays = 1, Size = new Point(3,2),
             CollisionMap = "XXX\nXOX", Metadata = new Dictionary<string,string>{{"AutoPlanter","HorsePlow"}}
         });
