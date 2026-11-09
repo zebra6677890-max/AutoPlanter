@@ -181,7 +181,7 @@ internal sealed class ModEntry : Mod
         {
             Vector2 delta = horseTarget.Value - horsePosition.Value;
             float distance = delta.Length();
-            float speed = Math.Max(4f, Game1.player.getMovementSpeed() * 0.5f);
+            float speed = Math.Max(4f, Game1.player.getMovementSpeed() * 2f);
             if (distance <= speed)
                 horsePosition = horseTarget.Value;
             else
