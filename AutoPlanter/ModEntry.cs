@@ -54,8 +54,9 @@ internal sealed class ModEntry : Mod
         // direction and can miss buildings when tapping them on Android.
         Vector2 grabTile = e.Cursor.GrabTile;
         Vector2 cursorTile = e.Cursor.Tile;
+        Vector2 facingTile = Game1.player.GetGrabTile();
         selected = Game1.getFarm().buildings.FirstOrDefault(b => b.buildingType.Value == Id &&
-            (IsInside(b, grabTile) || IsInside(b, cursorTile)));
+            (IsInside(b, grabTile) || IsInside(b, cursorTile) || IsInside(b, facingTile)));
         if (selected is null) return;
         Helper.Input.Suppress(e.Button);
         Game1.currentLocation.createQuestionDialogue("Конюшня автопосадки", new[] {
