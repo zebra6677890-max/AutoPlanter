@@ -42,14 +42,15 @@ internal sealed class ModEntry : Mod
         if (!e.NameWithoutLocale.IsEquivalentTo("Data/Buildings")) return;
         e.Edit(a => a.AsDictionary<string, BuildingData>().Data[Id] = new BuildingData {
             Name = "Horse Plow", Description = "A horse-drawn automatic planter.", Texture = buildingTexture,
-            SourceRect = new Rectangle(0, 0, 112, 80),
+            SourceRect = new Rectangle(0, 0, 48, 64),
             Builder = "Robin", BuildCost = 50000, BuildDays = 1, Size = new Point(3,2),
             CollisionMap = "XXX\nXOX", Metadata = new Dictionary<string,string>{{"AutoPlanter","HorsePlow"}}
         });
     }
     static Texture2D ResizeBuildingTexture(Texture2D source)
     {
-        const int width = 112, height = 80;
+        // Match the Junimo Hut's compact 48x64 building sprite dimensions.
+        const int width = 48, height = 64;
         Color[] input = new Color[source.Width * source.Height];
         source.GetData(input);
         Color[] output = new Color[width * height];
@@ -68,10 +69,6 @@ internal sealed class ModEntry : Mod
     void OnButtonPressed(object? s, ButtonPressedEventArgs e)
     {
         if (!Context.IsWorldReady || !Context.IsMainPlayer || Game1.activeClickableMenu is not null) return;
-
-        // Android touch controls can report a different button than desktop action-click.
-        // Check every input press against all available tile targets, but only open
-        // the menu when the tap/target is actually on this building.
         Vector2 grabTile = e.Cursor.GrabTile;
         Vector2 cursorTile = e.Cursor.Tile;
         Vector2 facingTile = Game1.player.GetGrabTile();
@@ -79,7 +76,6 @@ internal sealed class ModEntry : Mod
         selected = farm.buildings.FirstOrDefault(b => b.buildingType.Value == Id &&
             (IsInside(b, grabTile) || IsInside(b, cursorTile) || IsInside(b, facingTile)));
         if (selected is null) return;
-
         Helper.Input.Suppress(e.Button);
         Game1.currentLocation.createQuestionDialogue("Конюшня автопосадки", new[] {
             new Response("load","Загрузить семена"), new Response("cancel","Отмена"), new Response("start","Начать работу")
@@ -108,10 +104,7 @@ internal sealed class ModEntry : Mod
     }
     void OnMenuChanged(object? s, MenuChangedEventArgs e)
     {
-        // Save the temporary seed container whenever its item menu closes.
-        // On Android, menu transitions aren't always reported as ItemGrabMenu.
         if (seedChest is null || e.NewMenu is ItemGrabMenu) return;
-
         if (selected is not null)
         {
             var data = seedChest.Items
