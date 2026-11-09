@@ -141,17 +141,86 @@ internal sealed class ModEntry : Mod
             if (item is not StardewValley.Object seed || seed.Category != StardewValley.Object.SeedsCategory || seed.Stack <= 0)
                 continue;
 
-            if (!dirt.plant(seed.ParentSheetIndex, (int)tile.X, (int)tile.Y, Game1.player, false))
-                continue;
-            seed.Stack--;
-            if (seed.Stack <= 0)
-                Game1.player.Items[i] = null;
-            return true;
+            // Stardew 1.6 changed the HoeDirt planting API; resolve its supported overload at runtime.
+            var methods = typeof(HoeDirt).GetMethods(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)
+                .Where(method => method.Name.Equals("plant", StringComparison.OrdinalIgnoreCase));
+            foreach (var method in methods)
+            {
+                var parameters = method.GetParameters();
+                var args = new object?[parameters.Length];
+                int intIndex = 0;
+                bool supported = true;
+                for (int p = 0; p < parameters.Length; p++)
+                {
+                    Type type = parameters[p].ParameterType;
+                    if (type == typeof(int))
+                        args[p] = intIndex++ switch { 0 => seed.ParentSheetIndex, 1 => (int)tile.X, 2 => (int)tile.Y, _ => 0 };
+                    else if (type == typeof(string))
+                        args[p] = seed.QualifiedItemId;
+                    else if (type == typeof(Vector2))
+                        args[p] = tile;
+                    else if (typeof(Farmer).IsAssignableFrom(type))
+                        args[p] = Game1.player;
+                    else if (type == typeof(bool))
+                        args[p] = false;
+                    else if (parameters[p].HasDefaultValue)
+                        args[p] = parameters[p].DefaultValue;
+                    else { supported = false; break; }
+                }
+                if (!supported)
+                    continue;
+                try
+                {
+                    if (method.Invoke(dirt, args) is bool planted && planted)
+                    {
+                        seed.Stack--;
+                        if (seed.Stack <= 0)
+                            Game1.player.Items[i] = null;
+                        return true;
+                    }
+                }
+                catch (System.Reflection.TargetInvocationException)
+                {
+                    // Try another overload if the game exposes one.
+                }
+            }
         }
-
         return false;
     }
 
+    private void UpdateHorseMovement()
+    {
+        if (horseTarget is null || horsePosition is null)
+            return;
+        Vector2 delta = horseTarget.Value - horsePosition.Value;
+        float distance = delta.Length();
+        float speed = Math.Max(0.1f, Game1.player.getMovementSpeed() * 2f);
+        if (distance <= speed)
+            horsePosition = horseTarget;
+        else
+            horsePosition += delta / distance * speed;
+        if (++animationTicks >= 8)
+        {
+            animationTicks = 0;
+            horseFrame = (horseFrame + 1) % 4;
+        }
+    }
+
+    private void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)
+    {
+        if (!Context.IsWorldReady || Game1.currentLocation != Game1.getFarm() || horsePosition is null)
+            return;
+        try
+        {
+            horseTexture ??= Helper.ModContent.Load<Texture2D>("assets/horse_plow.png");
+            Vector2 screenPosition = Game1.GlobalToLocal(Game1.viewport, horsePosition.Value);
+            e.SpriteBatch.Draw(horseTexture, screenPosition, new Rectangle(horseFrame * 64, 0, 64, 48), Color.White, 0f, new Vector2(32, 40), 1.5f, SpriteEffects.None, Math.Clamp((horsePosition.Value.Y + 16f) / 100000f, 0f, 0.99f));
+        }
+        catch (Exception ex)
+        {
+            Monitor.Log("Couldn't draw horse-plow sprite: " + ex, LogLevel.Warn);
+        }
+    }
     private static List<Point> GetPatchCenters()
     {
         var result = new List<Point>();
