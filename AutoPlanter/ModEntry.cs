@@ -36,13 +36,13 @@ internal sealed class ModEntry : Mod
         string buildingTexture = Helper.ModContent.GetInternalAssetName("assets/horse_plow_building.png").Name;
         if (e.NameWithoutLocale.IsEquivalentTo(buildingTexture))
         {
-            e.LoadFrom(() => Helper.ModContent.Load<Texture2D>("assets/horse_plow_building.png"), AssetLoadPriority.Exclusive);
+            e.LoadFrom(() => ResizeBuildingTexture(Helper.ModContent.Load<Texture2D>("assets/horse_plow_building.png")), AssetLoadPriority.Exclusive);
             return;
         }
         if (!e.NameWithoutLocale.IsEquivalentTo("Data/Buildings")) return;
         e.Edit(a => a.AsDictionary<string, BuildingData>().Data[Id] = new BuildingData {
             Name = "Horse Plow", Description = "A horse-drawn automatic planter.", Texture = buildingTexture,
-            SourceRect = new Rectangle(0, 0, 192, 192),
+            SourceRect = new Rectangle(0, 0, 112, 80),
             Builder = "Robin", BuildCost = 50000, BuildDays = 1, Size = new Point(3,2),
             CollisionMap = "XXX\nXOX", Metadata = new Dictionary<string,string>{{"AutoPlanter","HorsePlow"}}
         });
