@@ -145,16 +145,34 @@ internal sealed class ModEntry : Mod
     void OnUpdateTicked(object? s, UpdateTickedEventArgs e)
     {
         if (!Context.IsWorldReady || !Context.IsMainPlayer) return;
+        Farm farm = Game1.getFarm();
+        Building? activeBuilding = farm.buildings.FirstOrDefault(b =>
+            b.buildingType.Value == Id &&
+            b.modData.TryGetValue(ActiveKey, out string? active) && active == "true");
+
+        // Recover the horse state after map/menu transitions while the machine is active.
+        if (activeBuilding is not null && horsePosition is null)
+        {
+            horsePosition = new Vector2(
+                (activeBuilding.tileX.Value + 1.5f) * Game1.tileSize,
+                (activeBuilding.tileY.Value + activeBuilding.tilesHigh.Value + 0.5f) * Game1.tileSize
+            );
+            horseTarget = horsePosition;
+        }
+
         if (horsePosition is not null && horseTarget is not null)
         {
-            Vector2 d=horseTarget.Value-horsePosition.Value; float len=d.Length(), speed=Math.Max(.1f,Game1.player.getMovementSpeed()*2f);
-            horsePosition = len <= speed ? horseTarget : horsePosition + d/len*speed;
-            if (++anim >= 8) { anim=0; frame=(frame+1)%4; }
+            Vector2 d = horseTarget.Value - horsePosition.Value;
+            float len = d.Length();
+            // A fixed minimum avoids a zero/near-zero movement speed freezing the horse.
+            float speed = Math.Max(8f, Game1.player.getMovementSpeed() * 2f);
+            horsePosition = len <= speed ? horseTarget : horsePosition + d / len * speed;
+            if (++anim >= 8) { anim = 0; frame = (frame + 1) % 4; }
         }
-        if (e.Ticks-tick<60) return; tick=e.Ticks;
-        Farm farm=Game1.getFarm();
-        foreach (Building b in farm.buildings)
-            if (b.buildingType.Value==Id && b.modData.TryGetValue(ActiveKey,out string? active) && active=="true") Work(farm,b);
+
+        if (e.Ticks - tick < 60) return;
+        tick = e.Ticks;
+        if (activeBuilding is not null) Work(farm, activeBuilding);
     }
     void Work(Farm farm, Building b)
     {
