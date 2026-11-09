@@ -1,0 +1,9 @@
+{
+  "Name": "AutoPlanter",
+  "Author": "AutoPlanter",
+  "Version": "0.1.0",
+  "Description": "A horse-drawn plow that prepares and plants a 3x3 patch around the farm building.",
+  "UniqueID": "AutoPlanter.HorsePlow",
+  "EntryDll": "AutoPlanter.dll",
+  "MinimumApiVersion": "4.0.0"
+}
