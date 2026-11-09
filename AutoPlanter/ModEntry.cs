@@ -43,16 +43,22 @@ internal sealed class ModEntry : Mod
     void OnButtonPressed(object? s, ButtonPressedEventArgs e)
     {
         if (!Context.IsWorldReady || !Context.IsMainPlayer || !e.Button.IsActionButton()) return;
-        Vector2 t = Game1.player.GetGrabTile();
+        // Use SMAPI's actual cursor target. GetGrabTile() uses the farmer's facing
+        // direction and can miss buildings when tapping them on Android.
+        Vector2 grabTile = e.Cursor.GrabTile;
+        Vector2 cursorTile = e.Cursor.Tile;
         selected = Game1.getFarm().buildings.FirstOrDefault(b => b.buildingType.Value == Id &&
-            t.X >= b.tileX.Value && t.X < b.tileX.Value+b.tilesWide.Value &&
-            t.Y >= b.tileY.Value && t.Y < b.tileY.Value+b.tilesHigh.Value);
+            (IsInside(b, grabTile) || IsInside(b, cursorTile)));
         if (selected is null) return;
         Helper.Input.Suppress(e.Button);
         Game1.currentLocation.createQuestionDialogue("Конюшня автопосадки", new[] {
             new Response("load","Загрузить семена"), new Response("cancel","Отмена"), new Response("start","Начать работу")
         }, OnAnswer);
     }
+    static bool IsInside(Building b, Vector2 tile) =>
+        tile.X >= b.tileX.Value && tile.X < b.tileX.Value + b.tilesWide.Value &&
+        tile.Y >= b.tileY.Value && tile.Y < b.tileY.Value + b.tilesHigh.Value;
+
     void OnAnswer(Farmer who, string answer)
     {
         if (selected is null) return;
