@@ -116,10 +116,16 @@ internal sealed class ModEntry : Mod
         {
             if (ReadSeeds(selected).Count == 0) { Game1.drawObjectDialogue("Сначала загрузи семена."); return; }
             selected.modData[ActiveKey] = "true";
-            // Spawn the horse outside the building, not underneath its sprite.
-            horsePosition = new Vector2((selected.tileX.Value + 1.5f) * Game1.tileSize, (selected.tileY.Value + selected.tilesHigh.Value + 0.5f) * Game1.tileSize);
-            horseTarget = horsePosition;
-            selected.modData[MovingKey] = "false";
+            // Horse waits inside the hut, then walks out through the front.
+            horsePosition = new Vector2(
+                (selected.tileX.Value + selected.tilesWide.Value / 2f) * Game1.tileSize,
+                (selected.tileY.Value + selected.tilesHigh.Value - 0.25f) * Game1.tileSize
+            );
+            horseTarget = new Vector2(
+                horsePosition.Value.X,
+                (selected.tileY.Value + selected.tilesHigh.Value + 0.5f) * Game1.tileSize
+            );
+            selected.modData[MovingKey] = "exit";
             selected.modData[CursorKey] = "0";
             frame = 0;
             anim = 0;
@@ -156,10 +162,14 @@ internal sealed class ModEntry : Mod
         if (activeBuilding is not null && horsePosition is null)
         {
             horsePosition = new Vector2(
-                (activeBuilding.tileX.Value + 1.5f) * Game1.tileSize,
+                (activeBuilding.tileX.Value + activeBuilding.tilesWide.Value / 2f) * Game1.tileSize,
+                (activeBuilding.tileY.Value + activeBuilding.tilesHigh.Value - 0.25f) * Game1.tileSize
+            );
+            horseTarget = new Vector2(
+                horsePosition.Value.X,
                 (activeBuilding.tileY.Value + activeBuilding.tilesHigh.Value + 0.5f) * Game1.tileSize
             );
-            horseTarget = horsePosition;
+            activeBuilding.modData[MovingKey] = "exit";
         }
 
         if (horsePosition is not null && horseTarget is not null)
@@ -169,6 +179,12 @@ internal sealed class ModEntry : Mod
             // A fixed minimum avoids a zero/near-zero movement speed freezing the horse.
             float speed = Math.Max(8f, Game1.player.getMovementSpeed() * 2f);
             horsePosition = len <= speed ? horseTarget : horsePosition + d / len * speed;
+            if (activeBuilding is not null &&
+                activeBuilding.modData.TryGetValue(MovingKey, out string? phase) &&
+                phase == "exit" && Vector2.DistanceSquared(horsePosition.Value, horseTarget.Value) <= 12f * 12f)
+            {
+                activeBuilding.modData[MovingKey] = "false";
+            }
             if (++anim >= 8) { anim = 0; frame = (frame + 1) % 4; }
         }
 
@@ -184,19 +200,25 @@ internal sealed class ModEntry : Mod
         if (seeds.Count == 0)
         {
             b.modData[ActiveKey] = "false";
-            horsePosition = null; horseTarget = null;
+            horsePosition = null;
+            horseTarget = null;
             return;
         }
 
+        // Square work zone: 20 tiles in each cardinal direction from the hut.
         var centers = new List<Point>();
-        for (int y = -Radius; y <= Radius; y += 3)
-            for (int x = -Radius; x <= Radius; x += 3)
-                if (x * x + y * y <= Radius * Radius) centers.Add(new Point(x, y));
+        for (int y = -19; y <= 20; y += 3)
+            for (int x = -19; x <= 20; x += 3)
+                centers.Add(new Point(x, y));
 
         int cursor = 0;
-        if (b.modData.TryGetValue(CursorKey, out string? raw)) int.TryParse(raw, out cursor);
+        if (b.modData.TryGetValue(CursorKey, out string? raw))
+            int.TryParse(raw, out cursor);
         cursor = Math.Clamp(cursor, 0, centers.Count - 1);
+
         bool moving = b.modData.TryGetValue(MovingKey, out string? state) && state == "true";
+        // "exit" is a separate first leg: never replace the doorway destination with a field target.
+        if (state == "exit") return;
 
         if (!moving)
         {
@@ -207,11 +229,13 @@ internal sealed class ModEntry : Mod
                 {
                     Vector2 candidate = new(
                         (b.tileX.Value + b.tilesWide.Value / 2f + centers[i].X + 0.5f) * Game1.tileSize,
-                        (b.tileY.Value + b.tilesHigh.Value / 2f + centers[i].Y + 0.5f) * Game1.tileSize);
+                        (b.tileY.Value + b.tilesHigh.Value / 2f + centers[i].Y + 0.5f) * Game1.tileSize
+                    );
                     float distance = Vector2.DistanceSquared(horsePosition.Value, candidate);
                     if (distance < best) { best = distance; cursor = i; }
                 }
             }
+
             Point next = centers[cursor];
             int tx = b.tileX.Value + b.tilesWide.Value / 2 + next.X;
             int ty = b.tileY.Value + b.tilesHigh.Value / 2 + next.Y;
@@ -221,29 +245,38 @@ internal sealed class ModEntry : Mod
             return;
         }
 
+        // Keep travelling to the same destination until the horse actually arrives.
         if (horsePosition is null || horseTarget is null ||
-            Vector2.DistanceSquared(horsePosition.Value, horseTarget.Value) > 32f * 32f) return;
+            Vector2.DistanceSquared(horsePosition.Value, horseTarget.Value) > 24f * 24f)
+            return;
 
         Point center = centers[cursor];
         int cx = b.tileX.Value + b.tilesWide.Value / 2 + center.X;
         int cy = b.tileY.Value + b.tilesHigh.Value / 2 + center.Y;
+
         for (int dx = -1; dx <= 1; dx++)
         for (int dy = -1; dy <= 1; dy++)
         {
+            int offsetX = center.X + dx;
+            int offsetY = center.Y + dy;
+            if (Math.Abs(offsetX) > 20 || Math.Abs(offsetY) > 20) continue;
+
             Vector2 tile = new(cx + dx, cy + dy);
-            Vector2 origin = new(b.tileX.Value + b.tilesWide.Value / 2f, b.tileY.Value + b.tilesHigh.Value / 2f);
-            if (Vector2.DistanceSquared(tile, origin) > Radius * Radius) continue;
             if (!farm.terrainFeatures.TryGetValue(tile, out TerrainFeature? feature))
             {
                 var dirt = new HoeDirt(0);
                 farm.terrainFeatures.Add(tile, dirt);
                 feature = dirt;
             }
-            if (feature is HoeDirt soil && soil.crop is null) Plant(soil, tile, seeds);
+            if (feature is HoeDirt soil && soil.crop is null)
+                Plant(soil, tile, seeds);
         }
 
-        b.modData[SeedsKey] = JsonSerializer.Serialize(seeds.Where(i => i.Stack > 0)
-            .Select(i => new SeedData(i.QualifiedItemId, i.Stack)).ToList());
+        b.modData[SeedsKey] = JsonSerializer.Serialize(
+            seeds.Where(i => i.Stack > 0)
+                .Select(i => new SeedData(i.QualifiedItemId, i.Stack))
+                .ToList()
+        );
         b.modData[CursorKey] = ((cursor + 1) % centers.Count).ToString();
         b.modData[MovingKey] = "false";
     }
