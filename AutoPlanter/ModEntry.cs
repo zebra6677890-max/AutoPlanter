@@ -47,6 +47,24 @@ internal sealed class ModEntry : Mod
             CollisionMap = "XXX\nXOX", Metadata = new Dictionary<string,string>{{"AutoPlanter","HorsePlow"}}
         });
     }
+    static Texture2D ResizeBuildingTexture(Texture2D source)
+    {
+        const int width = 112, height = 80;
+        Color[] input = new Color[source.Width * source.Height];
+        source.GetData(input);
+        Color[] output = new Color[width * height];
+        for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++)
+        {
+            int sx = Math.Min(source.Width - 1, x * source.Width / width);
+            int sy = Math.Min(source.Height - 1, y * source.Height / height);
+            output[y * width + x] = input[sy * source.Width + sx];
+        }
+        Texture2D resized = new Texture2D(Game1.graphics.GraphicsDevice, width, height);
+        resized.SetData(output);
+        return resized;
+    }
+
     void OnButtonPressed(object? s, ButtonPressedEventArgs e)
     {
         if (!Context.IsWorldReady || !Context.IsMainPlayer || Game1.activeClickableMenu is not null) return;
