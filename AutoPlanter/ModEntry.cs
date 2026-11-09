@@ -108,11 +108,16 @@ internal sealed class ModEntry : Mod
     }
     void OnMenuChanged(object? s, MenuChangedEventArgs e)
     {
-        if (seedChest is null || e.OldMenu is not ItemGrabMenu) return;
+        // Save the temporary seed container whenever its item menu closes.
+        // On Android, menu transitions aren't always reported as ItemGrabMenu.
+        if (seedChest is null || e.NewMenu is ItemGrabMenu) return;
+
         if (selected is not null)
         {
-            var data = seedChest.Items.Where(i => i is StardewValley.Object o && o.Category == StardewValley.Object.SeedsCategory && i.Stack > 0)
-                .Select(i => new SeedData(i.QualifiedItemId,i.Stack)).ToList();
+            var data = seedChest.Items
+                .Where(i => i is StardewValley.Object o && o.Category == StardewValley.Object.SeedsCategory && i.Stack > 0)
+                .Select(i => new SeedData(i.QualifiedItemId, i.Stack))
+                .ToList();
             selected.modData[SeedsKey] = JsonSerializer.Serialize(data);
         }
         seedChest = null;
